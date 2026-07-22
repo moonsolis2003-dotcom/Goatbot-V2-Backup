@@ -1,50 +1,54 @@
-const axios = require('axios');
+const axios = require("axios");
+
 module.exports = {
-    config: {
-        name: "nbpro",
-        version: "1.0",
-        aliases: ["edit", "nb", "nanobanana", "nanobanana-pro"],
-        author: "Tawsif~",
-        category: "ai",
-        countDown: 5,
-        role: 0,
-        description: {
-            en: "edit & generate images using Nano-banana Pro"
-        },
-        guide: {
-            en: " <prompt> | reply to image"
-        }
-    },
-    onStart: async function({
-        message, event, args
-    }) {
-        let prompt = args.join(" ");
-        if ((!event.messageReply && !event?.messageReply?.attachments[0]?.url && !prompt) || (event?.messageReply?.attachments[0]?.url && !prompt)) {
-            return message.reply('provide a prompt or reply to an image');
-        } else if (!event?.messageReply?.attachments[0] && prompt) {
-            let ratio = prompt?.split("--ar=")[1] || prompt?.split("--ar ")[1] || '1:1';
-            message.reaction("⏳", event.messageID);
-            try {
-                const gres = await axios.get(`https://tawsif.is-a.dev/gemini/nano-banana-pro-gen?prompt=${encodeURIComponent(prompt)}&ratio=${ratio}`);
-                message.reply({
-                    body: "✅ | Generated", attachment: await global.utils.getStreamFromURL(gres.data.imageUrl, 'gen.png')
-                });
-            } catch (e) {
-                message.reaction("❌", event.messageID);
-            }
-        } else {
-            let imgs = [];
-            for (let i = 0; i < event.messageReply.attachments.length; i++) {
-                imgs.push(event.messageReply.attachments[i].url);
-            }
-            try {
-                const eres = await axios.get(`https://tawsif.is-a.dev/gemini/nano-banana-pro-edit?prompt=${encodeURIComponent(prompt)}&urls=${encodeURIComponent(JSON.stringify(imgs))}`);
-                await message.reply({
-                    attachment: await global.utils.getStreamFromURL(eres.data.imageUrl, 'edit.png'), body: "✅ | image Edited"
-                });
-            } catch (error) {
-                message.reaction("❌", event.messageID);
-            }
-        }
+  config: {
+    name: "edit",
+    version: "0.0.7",
+    author: "Azadx69x",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Edit image",
+    longDescription: "Reply to any image",
+    category: "image",
+    guide: "{pn} [text]"
+  },
+
+  onStart: async function ({ api, event, args }) {
+
+    const react = (emoji) => api.setMessageReaction(emoji, event.messageID, () => {}, true);
+
+    try {
+      const prompt = args.join(" ");
+
+      if (!prompt) {
+        react("⚠️");
+        return api.sendMessage("⚠️ | Please provide text.", event.threadID);
+      }
+
+      const imageUrl = event.messageReply?.attachments[0]?.url;
+
+      if (!imageUrl) {
+        react("🖼️");
+        return api.sendMessage("🖼️ | Please reply to an image.", event.threadID);
+      }
+
+      react("⏳");
+
+      const apiUrl = `https://azadx69x.is-a.dev/api/editor?url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`;
+
+      const response = await axios.get(apiUrl, { responseType: "stream" });
+
+      react("✅");
+
+      api.sendMessage({
+        body: `✅ Image edited successfully!\n📝 Prompt: ${prompt}`,
+        attachment: response.data
+      }, event.threadID);
+
+    } catch (error) {
+      console.error(error);
+      react("❌");
+      api.sendMessage("❌ | Failed to process image.", event.threadID);
     }
+  }
 };
